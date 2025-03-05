@@ -1,4 +1,9 @@
+"""
+Network Anomaly Detection System
 
+This Streamlit app uses a trained machine learning model to detect anomalies in network traffic data.
+Users can either enter feature values manually or upload a CSV file for batch processing.
+"""
 import streamlit as st
 import pandas as pd
 import joblib
@@ -42,10 +47,47 @@ def plot_anomalies(data):
     st.pyplot(plt)
 
 # Streamlit app
-st.title("Network Anomaly Detection System")
+st.set_page_config(page_title="Network Anomaly Detection", page_icon="🛡️", layout="wide")
+
+# Custom CSS for styling
+st.markdown(
+    """
+    <style>
+    .stButton button {
+        background-color: #4CAF50;
+        color: white;
+        font-weight: bold;
+        border-radius: 5px;
+        padding: 10px 20px;
+    }
+    .stButton button:hover {
+        background-color: #45a049;
+    }
+    .stHeader {
+        color: #4CAF50;
+    }
+    .stSidebar {
+        background-color: #f0f2f6;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# App title and description
+st.title("🛡️ Network Anomaly Detection System")
+st.markdown("""
+    Welcome to the Network Anomaly Detection System! This app uses a trained machine learning model to detect anomalies in network traffic data.
+    You can either enter feature values manually or upload a CSV file for batch processing.
+""")
+
+# Display the required feature set
+st.sidebar.header("📋 Required Features")
+st.sidebar.write("The following features are required for prediction:")
+st.sidebar.write(feature_names)
 
 # Sidebar for single prediction
-st.sidebar.header("Single Prediction")
+st.sidebar.header("🔍 Single Prediction")
 features = []
 for feature in feature_names:
     value = st.sidebar.number_input(f"Enter {feature}", value=0.0)
@@ -54,21 +96,33 @@ for feature in feature_names:
 # Predict anomaly for single input
 if st.sidebar.button("Check for Anomaly"):
     result = predict_anomaly(features)
-    st.sidebar.write(f"Prediction: **{result}**")
+    if result == "Anomaly Detected":
+        st.sidebar.error(f"Prediction: **{result}** 🚨")
+    else:
+        st.sidebar.success(f"Prediction: **{result}** ✅")
 
 # Main section for batch processing
-st.header("Batch Processing")
+st.header("📂 Batch Processing")
 uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
 if uploaded_file:
     data = pd.read_csv(uploaded_file)
-    if set(data.columns) == set(feature_names):
-        predictions = model.predict(data)
+    missing_features = set(feature_names) - set(data.columns)
+    extra_features = set(data.columns) - set(feature_names)
+
+    if not missing_features:
+        predictions = model.predict(data[feature_names])
         data['prediction'] = predictions
+        st.success("✅ Uploaded CSV matches the required feature set.")
         st.write("Predictions:")
         st.write(data)
 
         # Visualize anomalies
-        st.header("Anomaly Visualization")
+        st.header("📊 Anomaly Visualization")
         plot_anomalies(data)
     else:
-        st.error("Uploaded CSV does not match the required feature set.")
+        st.error("❌ Uploaded CSV does not match the required feature set.")
+        st.write("The following features are missing:")
+        st.write(list(missing_features))
+        if extra_features:
+            st.warning("⚠️ The following extra features were found in the CSV:")
+            st.write(list(extra_features))
