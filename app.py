@@ -141,6 +141,16 @@ if uploaded_file is not None:
             # Visualize anomalies
             st.header("📊 Spyware/Spoofing Visualization")
             plot_anomalies(data)
+
+            # Explanation for the visualization
+            st.markdown("""
+                ### Understanding the Visualization
+                - **Blue Dots**: Represent **normal traffic**.
+                - **Red Dots**: Represent **spyware/spoofing attacks**.
+                - The x-axis represents the **sample index** (row number in the dataset).
+                - The y-axis represents the **value of the first feature** (`duration` in this case).
+                - The plot helps you visualize the distribution of normal traffic and spyware/spoofing attacks in your dataset.
+            """)
         else:
             st.error("❌ Oops! Your CSV file doesn't have all the required features.")
             st.write("Here’s what’s missing:")
