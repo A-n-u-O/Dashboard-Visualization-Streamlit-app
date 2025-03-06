@@ -1,7 +1,7 @@
 """
 Network Anomaly Detection System
 
-This Streamlit app uses a trained machine learning model to detect anomalies in network traffic data.
+This Streamlit app uses a trained machine learning model to detect spyware and spoofing in network traffic data.
 Users can either enter feature values manually or upload a CSV file for batch processing.
 """
 import streamlit as st
@@ -12,26 +12,36 @@ import matplotlib.pyplot as plt
 # Load the saved model
 model = joblib.load('best_model.pkl')
 
+# Define categorical feature categories
+categorical_categories = {
+    'protocol_type': ['tcp', 'udp', 'icmp'],
+    'service': ['http', 'smtp', 'ftp', 'ssh', 'dns', 'other'],
+    'flag': ['SF', 'S0', 'S1', 'S2', 'S3', 'OTH']
+}
+
 # Load feature names (ensure this matches the training data)
 feature_names = [
     'duration', 'protocol_type', 'service', 'flag', 'src_bytes', 'dst_bytes',
     'land', 'wrong_fragment', 'urgent', 'hot', 'num_failed_logins', 'logged_in',
     'num_compromised', 'root_shell', 'su_attempted', 'num_root', 'num_file_creations',
-    'num_shells', 'num_access_files', 'num_outbound_cmds', 'is_host_login',
-    'is_guest_login', 'count', 'srv_count', 'serror_rate', 'srv_serror_rate',
-    'rerror_rate', 'srv_rerror_rate', 'same_srv_rate', 'diff_srv_rate',
-    'srv_diff_host_rate', 'dst_host_count', 'dst_host_srv_count',
-    'dst_host_same_srv_rate', 'dst_host_diff_srv_rate',
-    'dst_host_same_src_port_rate', 'dst_host_srv_diff_host_rate',
-    'dst_host_serror_rate', 'dst_host_srv_serror_rate', 'dst_host_rerror_rate',
-    'dst_host_srv_rerror_rate'
+    'num_shells', 'num_access_files', 'num_outbound_cmds'
 ]
+
+# Function to preprocess input data
+def preprocess_input(data):
+    # Encode categorical features using predefined categories
+    for feature, categories in categorical_categories.items():
+        data[feature] = data[feature].map({cat: idx for idx, cat in enumerate(categories)})
+    
+    # Skip scaling numerical features
+    return data
 
 # Function to predict anomalies
 def predict_anomaly(features):
     df = pd.DataFrame([features], columns=feature_names)
+    df = preprocess_input(df)  # Preprocess input data
     prediction = model.predict(df)
-    return "Anomaly Detected" if prediction == 1 else "Normal Traffic"
+    return "Spyware/Spoofing Detected" if prediction == 1 else "Normal Traffic"
 
 # Function to plot anomalies
 def plot_anomalies(data):
@@ -40,14 +50,14 @@ def plot_anomalies(data):
 
     plt.figure(figsize=(10, 5))
     plt.scatter(normal.index, normal.iloc[:, 0], color='blue', label="Normal")
-    plt.scatter(anomalies.index, anomalies.iloc[:, 0], color='red', label="Anomaly")
+    plt.scatter(anomalies.index, anomalies.iloc[:, 0], color='red', label="Spyware/Spoofing")
     plt.legend()
     plt.xlabel("Samples")
     plt.ylabel("Feature Value")
     st.pyplot(plt)
 
 # Streamlit app
-st.set_page_config(page_title="Network Anomaly Detection", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="Spyware & Spoofing Detection", page_icon="🛡️", layout="wide")
 
 # Custom CSS for styling
 st.markdown(
@@ -75,54 +85,113 @@ st.markdown(
 )
 
 # App title and description
-st.title("🛡️ Network Anomaly Detection System")
+st.title("🛡️ Spyware & Spoofing Detection System")
 st.markdown("""
-    Welcome to the Network Anomaly Detection System! This app uses a trained machine learning model to detect anomalies in network traffic data.
+    Welcome to the Spyware & Spoofing Detection System! This app uses a trained machine learning model to detect spyware and spoofing in network traffic data.
     You can either enter feature values manually or upload a CSV file for batch processing.
 """)
 
 # Display the required feature set
-st.sidebar.header("📋 Required Features")
-st.sidebar.write("The following features are required for prediction:")
-st.sidebar.write(feature_names)
+st.header("📋 Required Features")
+st.write("The following **20 features** are required for prediction:")
+st.write(feature_names)
 
 # Sidebar for single prediction
 st.sidebar.header("🔍 Single Prediction")
 features = []
 for feature in feature_names:
-    value = st.sidebar.number_input(f"Enter {feature}", value=0.0)
+    if feature in categorical_categories:  # Categorical features
+        value = st.sidebar.selectbox(f"Select {feature}", options=categorical_categories[feature])
+    else:  # Numerical features
+        value = st.sidebar.number_input(f"Enter {feature}", value=0.0)
     features.append(value)
 
 # Predict anomaly for single input
-if st.sidebar.button("Check for Anomaly"):
+if st.sidebar.button("Check for Spyware/Spoofing"):
     result = predict_anomaly(features)
-    if result == "Anomaly Detected":
+    if result == "Spyware/Spoofing Detected":
         st.sidebar.error(f"Prediction: **{result}** 🚨")
     else:
         st.sidebar.success(f"Prediction: **{result}** ✅")
 
 # Main section for batch processing
 st.header("📂 Batch Processing")
+
+# File uploader
 uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
-if uploaded_file:
-    data = pd.read_csv(uploaded_file)
-    missing_features = set(feature_names) - set(data.columns)
-    extra_features = set(data.columns) - set(feature_names)
 
-    if not missing_features:
-        predictions = model.predict(data[feature_names])
-        data['prediction'] = predictions
-        st.success("✅ Uploaded CSV matches the required feature set.")
-        st.write("Predictions:")
-        st.write(data)
+# Process uploaded file
+if uploaded_file is not None:
+    try:
+        data = pd.read_csv(uploaded_file)
+        missing_features = set(feature_names) - set(data.columns)
+        extra_features = set(data.columns) - set(feature_names)
 
-        # Visualize anomalies
-        st.header("📊 Anomaly Visualization")
-        plot_anomalies(data)
-    else:
-        st.error("❌ Uploaded CSV does not match the required feature set.")
-        st.write("The following features are missing:")
-        st.write(list(missing_features))
+        if not missing_features:
+            # Preprocess the uploaded data
+            data_preprocessed = preprocess_input(data[feature_names])
+            
+            # Make predictions
+            predictions = model.predict(data_preprocessed)
+            data['prediction'] = predictions
+            st.success("✅ Your CSV file is ready for analysis!")
+            st.write("Predictions:")
+            st.write(data)
+
+            # Visualize anomalies
+            st.header("📊 Spyware/Spoofing Visualization")
+            plot_anomalies(data)
+        else:
+            st.error("❌ Oops! Your CSV file doesn't have all the required features.")
+            st.write("Here’s what’s missing:")
+            st.write(list(missing_features))
+            st.write("Please make sure your CSV file includes all the required features listed above.")
+        
         if extra_features:
-            st.warning("⚠️ The following extra features were found in the CSV:")
+            st.warning("⚠️ Your CSV file has some extra features that aren't needed:")
             st.write(list(extra_features))
+            st.write("You can ignore these extra features, but make sure all the required features are included.")
+    except Exception as e:
+        st.error(f"❌ Error reading the CSV file: {e}")
+
+# Generate a sample CSV file for testing
+st.header("📥 Generate a Sample CSV File")
+if st.button("Download Sample CSV"):
+    # Create a sample DataFrame with the required 20 features and some extra features
+    sample_data = {
+        'duration': [0, 1, 2],
+        'protocol_type': ['tcp', 'udp', 'icmp'],
+        'service': ['http', 'smtp', 'ftp'],
+        'flag': ['SF', 'S0', 'S1'],
+        'src_bytes': [100, 200, 300],
+        'dst_bytes': [500, 600, 700],
+        'land': [0, 0, 0],
+        'wrong_fragment': [0, 0, 0],
+        'urgent': [0, 0, 0],
+        'hot': [0, 0, 0],
+        'num_failed_logins': [0, 0, 0],
+        'logged_in': [1, 1, 1],
+        'num_compromised': [0, 0, 0],
+        'root_shell': [0, 0, 0],
+        'su_attempted': [0, 0, 0],
+        'num_root': [0, 0, 0],
+        'num_file_creations': [0, 0, 0],
+        'num_shells': [0, 0, 0],
+        'num_access_files': [0, 0, 0],
+        'num_outbound_cmds': [0, 0, 0],
+        'extra_feature_1': [1, 2, 3],  # Extra feature
+        'extra_feature_2': [4, 5, 6]   # Extra feature
+    }
+    sample_df = pd.DataFrame(sample_data)
+    
+    # Save the sample DataFrame to a CSV file
+    sample_df.to_csv("sample_data.csv", index=False)
+    
+    # Provide the CSV file for download
+    with open("sample_data.csv", "rb") as file:
+        st.download_button(
+            label="Download Sample CSV",
+            data=file,
+            file_name="sample_data.csv",
+            mime="text/csv"
+        )

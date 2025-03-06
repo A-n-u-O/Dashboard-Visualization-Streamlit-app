@@ -1,0 +1,4 @@
+duration,protocol_type,service,flag,src_bytes,dst_bytes,land,wrong_fragment,urgent,hot,num_failed_logins,logged_in,num_compromised,root_shell,su_attempted,num_root,num_file_creations,num_shells,num_access_files,num_outbound_cmds,extra_feature_1,extra_feature_2
+0,tcp,http,SF,100,500,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,4
+1,udp,smtp,S0,200,600,0,0,0,0,0,1,0,0,0,0,0,0,0,0,2,5
+2,icmp,ftp,S1,300,700,0,0,0,0,0,1,0,0,0,0,0,0,0,0,3,6
